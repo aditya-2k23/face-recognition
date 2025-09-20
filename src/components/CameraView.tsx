@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Button } from "./ui/button";
 import { Camera, Square, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
@@ -6,7 +6,13 @@ import { useToast } from "../hooks/use-toast";
 interface CameraViewProps {
   onFaceDetected: (
     imageData: string
-  ) => Promise<{ success: boolean; studentName?: string; confidence?: number }>;
+  ) => Promise<
+    | { status: "recognized"; studentName: string; confidence: number }
+    | { status: "already_marked"; studentName: string }
+    | { status: "no_face" }
+    | { status: "not_recognized" }
+    | { status: "error" }
+  >;
   isProcessing: boolean;
 }
 
@@ -20,17 +26,7 @@ export const CameraView = ({
   const [lastCapture, setLastCapture] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (isStreaming) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-
-    return () => stopCamera();
-  }, [isStreaming]);
-
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -52,7 +48,17 @@ export const CameraView = ({
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (isStreaming) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+
+    return () => stopCamera();
+  }, [isStreaming, startCamera]);
 
   const stopCamera = () => {
     if (videoRef.current?.srcObject) {
@@ -81,21 +87,47 @@ export const CameraView = ({
     try {
       const result = await onFaceDetected(imageData);
 
-      if (result.success && result.studentName) {
-        toast({
-          title: "✓ Attendance Marked",
-          description: `${result.studentName} - Confidence: ${(
-            result.confidence! * 100
-          ).toFixed(1)}%`,
-          variant: "default",
-          className: "bg-success text-success-foreground",
-        });
-      } else {
-        toast({
-          title: "❌ Face Not Recognized",
-          description: "Student not found in database",
-          variant: "destructive",
-        });
+      switch (result.status) {
+        case "recognized":
+          toast({
+            title: "✓ Attendance Marked",
+            description: `${result.studentName} - Confidence: ${(
+              result.confidence * 100
+            ).toFixed(1)}%`,
+            variant: "default",
+            className: "bg-success text-success-foreground",
+          });
+          break;
+        case "already_marked":
+          toast({
+            title: "Already Marked",
+            description: `${result.studentName} has already been marked present today.`,
+            variant: "default",
+          });
+          break;
+        case "no_face":
+          toast({
+            title: "No Face Detected",
+            description:
+              "Please ensure your face is clearly visible and well-lit, then try again.",
+            variant: "destructive",
+          });
+          break;
+        case "not_recognized":
+          toast({
+            title: "❌ Face Not Recognized",
+            description: "Student not found in database",
+            variant: "destructive",
+          });
+          break;
+        case "error":
+        default:
+          toast({
+            title: "Processing Error",
+            description: "Failed to process face recognition",
+            variant: "destructive",
+          });
+          break;
       }
     } catch (error) {
       console.error("Face detection error:", error);

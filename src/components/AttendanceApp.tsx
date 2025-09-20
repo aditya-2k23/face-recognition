@@ -55,26 +55,32 @@ export const AttendanceApp = () => {
     loadClasses();
   }, []);
 
+  // Return structured result so UI can show accurate feedback
+  type DetectionResult =
+    | { status: "recognized"; studentName: string; confidence: number }
+    | { status: "already_marked"; studentName: string }
+    | { status: "no_face" }
+    | { status: "not_recognized" }
+    | { status: "error" };
+
   // Real face recognition function using ML
-  const handleFaceDetection = async (imageData: string) => {
+  const handleFaceDetection = async (
+    imageData: string
+  ): Promise<DetectionResult> => {
     setIsProcessing(true);
 
     try {
       // Convert base64 image to HTMLImageElement
       const img = new Image();
 
-      return new Promise<{
-        success: boolean;
-        studentName?: string;
-        confidence?: number;
-      }>((resolve) => {
+      return new Promise<DetectionResult>((resolve) => {
         img.onload = async () => {
           try {
             // Extract face descriptor from captured image
             const capturedDescriptor = await extractFaceDescriptor(img);
 
             if (!capturedDescriptor) {
-              resolve({ success: false });
+              resolve({ status: "no_face" });
               return;
             }
 
@@ -85,7 +91,7 @@ export const AttendanceApp = () => {
 
             if (embeddingsError || !embeddings) {
               console.error("Error fetching embeddings:", embeddingsError);
-              resolve({ success: false });
+              resolve({ status: "error" });
               return;
             }
 
@@ -102,7 +108,7 @@ export const AttendanceApp = () => {
 
             if (studentsErr || !studentsForEmbeddings) {
               console.error("Error fetching students:", studentsErr);
-              resolve({ success: false });
+              resolve({ status: "error" });
               return;
             }
 
@@ -126,7 +132,7 @@ export const AttendanceApp = () => {
               });
 
             if (storedDescriptors.length === 0) {
-              resolve({ success: false });
+              resolve({ status: "not_recognized" });
               return;
             }
 
@@ -148,12 +154,10 @@ export const AttendanceApp = () => {
                 .single();
 
               if (existingAttendance) {
-                toast({
-                  title: "Already Marked",
-                  description: `${bestMatch.studentName} has already been marked present today.`,
-                  variant: "default",
+                resolve({
+                  status: "already_marked",
+                  studentName: bestMatch.studentName,
                 });
-                resolve({ success: false });
                 return;
               }
 
@@ -168,34 +172,34 @@ export const AttendanceApp = () => {
 
               if (error) {
                 console.error("Error marking attendance:", error);
-                resolve({ success: false });
+                resolve({ status: "error" });
                 return;
               }
 
               resolve({
-                success: true,
+                status: "recognized",
                 studentName: bestMatch.studentName,
                 confidence: confidence,
               });
             } else {
-              resolve({ success: false });
+              resolve({ status: "not_recognized" });
             }
           } catch (error) {
             console.error("Face recognition error:", error);
-            resolve({ success: false });
+            resolve({ status: "error" });
           }
         };
 
         img.onerror = () => {
           console.error("Error loading image for face recognition");
-          resolve({ success: false });
+          resolve({ status: "error" });
         };
 
         img.src = imageData;
       });
     } catch (error) {
       console.error("Face detection error:", error);
-      return { success: false };
+      return { status: "error" };
     } finally {
       setIsProcessing(false);
     }
