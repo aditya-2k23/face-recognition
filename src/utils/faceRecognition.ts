@@ -2,42 +2,26 @@ import * as faceapi from "face-api.js";
 
 let isModelLoaded = false;
 
+const CDN_MODELS_URL = "https://justadudewhohacks.github.io/face-api.js/models";
+
 const loadAllModelsFrom = async (baseUrl: string) => {
   await Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl),
     faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl),
     faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl),
-    faceapi.nets.faceExpressionNet.loadFromUri(baseUrl),
   ]);
 };
 
 export const loadFaceApiModels = async () => {
   if (isModelLoaded) return;
 
-  // Prefer local models (public/models). Works in Vite with BASE_URL.
-  const LOCAL_MODELS_URL = `${import.meta.env.BASE_URL}models`;
-  // Fallback CDN hosting of the official face-api.js models
-  const CDN_MODELS_URL =
-    import.meta.env.VITE_FACEAPI_MODELS_URL ||
-    "https://justadudewhohacks.github.io/face-api.js/models";
-
   try {
-    await loadAllModelsFrom(LOCAL_MODELS_URL);
+    await loadAllModelsFrom(CDN_MODELS_URL);
     isModelLoaded = true;
-    console.log("Face-api models loaded successfully from", LOCAL_MODELS_URL);
-  } catch (localErr) {
-    console.warn(
-      "Local models not found or failed to load, falling back to CDN:",
-      localErr
-    );
-    try {
-      await loadAllModelsFrom(CDN_MODELS_URL);
-      isModelLoaded = true;
-      console.log("Face-api models loaded successfully from", CDN_MODELS_URL);
-    } catch (cdnErr) {
-      console.error("Error loading face-api models from CDN:", cdnErr);
-      throw cdnErr;
-    }
+    console.log("Face-api models loaded successfully from", CDN_MODELS_URL);
+  } catch (err) {
+    console.error("Error loading face-api models from CDN:", err);
+    throw err;
   }
 };
 
