@@ -99,9 +99,6 @@ export const AttendanceUI = ({
               <UserCheck className="h-6 w-6 text-primary" />
               Face Recognition Attendance
             </CardTitle>
-            <CardDescription>
-              Simple and efficient student attendance tracking
-            </CardDescription>
           </CardHeader>
         </Card>
 
@@ -198,24 +195,6 @@ export const AttendanceUI = ({
             </CardContent>
           </Card>
         )}
-
-        {/* Instructions */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>
-                <strong>Instructions:</strong>
-              </p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Add students with photos in Manage Students tab</li>
-                <li>Select a class and start attendance</li>
-                <li>Position student's face in the frame</li>
-                <li>Tap "Detect Face" to mark attendance</li>
-                <li>Real ML compares faces for accurate recognition</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
