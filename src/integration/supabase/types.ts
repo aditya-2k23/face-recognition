@@ -14,114 +14,225 @@ export type Database = {
   };
   public: {
     Tables: {
-      attendance: {
+      students: {
         Row: {
-          attendance_date: string;
-          class_id: string;
-          confidence_score: number | null;
           id: string;
-          marked_at: string;
-          student_id: string;
-        };
-        Insert: {
-          attendance_date?: string;
-          class_id: string;
-          confidence_score?: number | null;
-          id?: string;
-          marked_at?: string;
-          student_id: string;
-        };
-        Update: {
-          attendance_date?: string;
-          class_id?: string;
-          confidence_score?: number | null;
-          id?: string;
-          marked_at?: string;
-          student_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "attendance_class_id_fkey";
-            columns: ["class_id"];
-            isOneToOne: false;
-            referencedRelation: "classes";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "attendance_student_id_fkey";
-            columns: ["student_id"];
-            isOneToOne: false;
-            referencedRelation: "students";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
-      classes: {
-        Row: {
-          class_name: string;
+          auth_user_id: string | null;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          department: string | null;
+          enrollment_year: number | null; // smallint
+          photo_url: string | null;
+          is_active: boolean | null;
           created_at: string;
-          id: string;
-          teacher_name: string;
+          updated_at: string;
         };
         Insert: {
-          class_name: string;
-          created_at?: string;
           id?: string;
-          teacher_name: string;
+          auth_user_id?: string | null;
+          full_name: string;
+          email?: string | null;
+          phone?: string | null;
+          department?: string | null;
+          enrollment_year?: number | null;
+          photo_url?: string | null;
+          is_active?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: {
-          class_name?: string;
-          created_at?: string;
           id?: string;
-          teacher_name?: string;
+          auth_user_id?: string | null;
+          full_name?: string;
+          email?: string | null;
+          phone?: string | null;
+          department?: string | null;
+          enrollment_year?: number | null;
+          photo_url?: string | null;
+          is_active?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      teachers: {
+        Row: {
+          id: string;
+          auth_user_id: string | null;
+          teacher_code: string | null;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          department: string | null;
+          photo_url: string | null;
+          is_active: boolean | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          auth_user_id?: string | null;
+          teacher_code?: string | null;
+          full_name: string;
+          email?: string | null;
+          phone?: string | null;
+          department?: string | null;
+          photo_url?: string | null;
+          is_active?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          auth_user_id?: string | null;
+          teacher_code?: string | null;
+          full_name?: string;
+          email?: string | null;
+          phone?: string | null;
+          department?: string | null;
+          photo_url?: string | null;
+          is_active?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      courses: {
+        Row: {
+          id: string;
+          code: string | null;
+          title: string;
+          credits: number | null;
+          semester: number | null;
+          is_active: boolean | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code?: string | null;
+          title: string;
+          credits?: number | null;
+          semester?: number | null;
+          is_active?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          code?: string | null;
+          title?: string;
+          credits?: number | null;
+          semester?: number | null;
+          is_active?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      course_sessions: {
+        Row: {
+          id: string;
+          course_id: string;
+          teacher_id: string | null;
+          session_date: string; // date
+          start_time: string | null; // time
+          end_time: string | null; // time
+          location: string | null;
+          status: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          teacher_id?: string | null;
+          session_date: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          location?: string | null;
+          status?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          teacher_id?: string | null;
+          session_date?: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          location?: string | null;
+          status?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
       face_embeddings: {
         Row: {
-          created_at: string;
-          embedding: string;
           id: string;
           student_id: string;
+          embedding: number[]; // vector(128)
+          source: string | null;
+          session_id: string | null;
+          created_at: string;
         };
         Insert: {
-          created_at?: string;
-          embedding: string;
           id?: string;
           student_id: string;
+          embedding: number[];
+          source?: string | null;
+          session_id?: string | null;
+          created_at?: string;
         };
         Update: {
-          created_at?: string;
-          embedding?: string;
           id?: string;
           student_id?: string;
+          embedding?: number[];
+          source?: string | null;
+          session_id?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
-      students: {
+      attendance: {
         Row: {
-          created_at: string;
-          email: string | null;
           id: string;
-          name: string;
+          session_id: string;
           student_id: string;
-          updated_at: string;
+          is_present: boolean;
+          marked_at: string;
+          marked_by: string | null; // teacher id
+          method: string | null;
+          confidence: number | null;
+          face_embedding_id: string | null;
+          photo_url: string | null;
+          created_at: string;
         };
         Insert: {
-          created_at?: string;
-          email?: string | null;
           id?: string;
-          name: string;
+          session_id: string;
           student_id: string;
-          updated_at?: string;
+          is_present?: boolean;
+          marked_at?: string;
+          marked_by?: string | null;
+          method?: string | null;
+          confidence?: number | null;
+          face_embedding_id?: string | null;
+          photo_url?: string | null;
+          created_at?: string;
         };
         Update: {
-          created_at?: string;
-          email?: string | null;
           id?: string;
-          name?: string;
+          session_id?: string;
           student_id?: string;
-          updated_at?: string;
+          is_present?: boolean;
+          marked_at?: string;
+          marked_by?: string | null;
+          method?: string | null;
+          confidence?: number | null;
+          face_embedding_id?: string | null;
+          photo_url?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };

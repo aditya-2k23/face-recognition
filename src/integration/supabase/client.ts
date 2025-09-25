@@ -2,9 +2,19 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-const SUPABASE_URL = "https://fxkjcrgzyogxhosjvzby.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4a2pjcmd6eW9neGhvc2p2emJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjIyNTMsImV4cCI6MjA3MzgzODI1M30.Pm5uWvko5H-UtVDZ33jn0YYB0IP3S6V0w6CuI7X3EZc";
+// Vite exposes env vars on import.meta.env (process.env is undefined in browser unless polyfilled)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env
+  .VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error(
+    "[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Check your .env / vite config."
+  );
+  throw new Error(
+    "Supabase environment variables not set. Define VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY."
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

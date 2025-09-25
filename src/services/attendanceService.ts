@@ -1,16 +1,36 @@
 import { supabase } from "../integration/supabase/client";
 import { extractFaceDescriptor, findBestMatch } from "../utils/faceRecognition";
 
-export interface Class {
+// New schema interfaces
+export interface SessionInfo {
+  id: string; // course_session id
+  course_title: string;
+  course_code: string | null;
+  teacher_name: string | null;
+  session_date: string; // YYYY-MM-DD
+  start_time?: string | null;
+  end_time?: string | null;
+  location?: string | null;
+}
+
+// Raw shape returned by loadSessions() (flat fields only to avoid join type issues)
+interface RawSessionRow {
   id: string;
-  class_name: string;
-  teacher_name: string;
+  session_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  course_id?: string; // available if selected
+  teacher_id?: string | null; // available if selected
 }
 
 export interface Student {
   id: string;
-  student_id: string;
-  name: string;
+  full_name: string;
+  email?: string | null;
+  enrollment_year?: number | null;
+  department?: string | null;
+  photo_url?: string | null;
 }
 
 export type DetectionResult =
@@ -23,30 +43,27 @@ export type DetectionResult =
 export interface AttendanceServiceState {
   isProcessing: boolean;
   isAttendanceMode: boolean;
-  selectedClass: string;
-  classes: Class[];
-  students: Student[];
+  selectedSession: string; // course_session id
+  sessions: SessionInfo[];
 }
 
 export class AttendanceService {
   private state: AttendanceServiceState = {
     isProcessing: false,
     isAttendanceMode: false,
-    selectedClass: "",
-    classes: [],
-    students: [],
+    selectedSession: "",
+    sessions: [],
   };
 
   private listeners: Array<(state: AttendanceServiceState) => void> = [];
 
   constructor() {
-    this.loadClasses();
+    this.loadSessions();
   }
 
-  // State management
   subscribe(listener: (state: AttendanceServiceState) => void) {
     this.listeners.push(listener);
-    listener(this.state); // Initial call
+    listener(this.state);
     return () => {
       this.listeners = this.listeners.filter((l) => l !== listener);
     };
@@ -61,54 +78,58 @@ export class AttendanceService {
     this.notify();
   }
 
-  // Data loading
-  async loadClasses(): Promise<void> {
+  async loadSessions(): Promise<void> {
     try {
-      const { data, error } = await supabase.from("classes").select("*");
+      const { data, error } = await supabase
+        .from("course_sessions")
+        .select(
+          "id, session_date, start_time, end_time, location, course_id, teacher_id"
+        )
+        .order("session_date", { ascending: false });
       if (error) {
-        console.error("Error loading classes:", error);
+        console.error("Error loading sessions:", error);
         return;
       }
       if (data) {
-        this.updateState({ classes: data });
+        const sessions: SessionInfo[] = (
+          data as unknown as RawSessionRow[]
+        ).map((row) => ({
+          id: row.id,
+          // Placeholder labels until course / teacher details are fetched elsewhere.
+          course_title: row.course_id
+            ? `Course ${row.course_id.slice(0, 6)}`
+            : "Course",
+          course_code: null,
+          teacher_name: row.teacher_id
+            ? `Teacher ${row.teacher_id.slice(0, 6)}`
+            : null,
+          session_date: row.session_date,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          location: row.location,
+        }));
+        this.updateState({ sessions });
       }
     } catch (error) {
-      console.error("Error loading classes:", error);
-    }
-  }
-
-  async loadStudents(): Promise<void> {
-    try {
-      const { data, error } = await supabase.from("students").select("*");
-      if (error) {
-        console.error("Error loading students:", error);
-        return;
-      }
-      if (data) {
-        this.updateState({ students: data });
-      }
-    } catch (error) {
-      console.error("Error loading students:", error);
+      console.error("Error loading sessions:", error);
     }
   }
 
   async refreshData(): Promise<void> {
-    await Promise.all([this.loadClasses(), this.loadStudents()]);
+    await this.loadSessions();
   }
 
-  // Attendance flow
-  setSelectedClass(classId: string): void {
-    this.updateState({ selectedClass: classId });
+  setSelectedSession(sessionId: string): void {
+    this.updateState({ selectedSession: sessionId });
   }
 
   async startAttendance(): Promise<{ success: boolean; error?: string }> {
-    if (!this.state.selectedClass) {
+    if (!this.state.selectedSession) {
       return {
         success: false,
-        error: "Please select a class before taking attendance.",
+        error: "Please select a session before taking attendance.",
       };
     }
-
     try {
       await this.refreshData();
       this.updateState({ isAttendanceMode: true });
@@ -123,94 +144,76 @@ export class AttendanceService {
     this.updateState({ isAttendanceMode: false });
   }
 
-  // Face recognition
   async handleFaceDetection(imageData: string): Promise<DetectionResult> {
     this.updateState({ isProcessing: true });
-
     try {
-      // Convert base64 image to HTMLImageElement
       const img = new Image();
-
       return new Promise<DetectionResult>((resolve) => {
         img.onload = async () => {
           try {
-            // Extract face descriptor from captured image
             const capturedDescriptor = await extractFaceDescriptor(img);
-
             if (!capturedDescriptor) {
               resolve({ status: "no_face" });
               return;
             }
-
-            // Fetch all stored face embeddings
             const { data: embeddings, error: embeddingsError } = await supabase
               .from("face_embeddings")
               .select("id, embedding, student_id");
-
             if (embeddingsError || !embeddings) {
               console.error("Error fetching embeddings:", embeddingsError);
               resolve({ status: "error" });
               return;
             }
-
-            // Fetch matching students for the embeddings
             const studentIds = Array.from(
               new Set(embeddings.map((e) => e.student_id))
             );
-
             const { data: studentsForEmbeddings, error: studentsErr } =
               await supabase
                 .from("students")
-                .select("id, name, student_id")
+                .select("id, full_name")
                 .in("id", studentIds);
-
             if (studentsErr || !studentsForEmbeddings) {
               console.error("Error fetching students:", studentsErr);
               resolve({ status: "error" });
               return;
             }
-
             const studentById = new Map(
               studentsForEmbeddings.map((s) => [s.id, s])
             );
-
-            // Convert stored embeddings to proper format
             const storedDescriptors = embeddings
               .filter((e) => e.embedding && studentById.has(e.student_id))
               .map((e) => {
                 const student = studentById.get(e.student_id)!;
                 const vector = Array.isArray(e.embedding)
                   ? (e.embedding as number[])
-                  : JSON.parse(e.embedding as unknown as string);
+                  : (() => {
+                      try {
+                        return JSON.parse(e.embedding as unknown as string);
+                      } catch {
+                        return [] as number[];
+                      }
+                    })();
                 return {
                   id: student.id,
-                  studentName: student.name,
+                  studentName: student.full_name,
                   descriptor: new Float32Array(vector),
                 };
               });
-
             if (storedDescriptors.length === 0) {
               resolve({ status: "not_recognized" });
               return;
             }
-
-            // Find the best match
             const bestMatch = findBestMatch(
               capturedDescriptor,
               storedDescriptors
             );
-
             if (bestMatch) {
-              // Check if student already marked attendance today
-              const today = new Date().toISOString().split("T")[0];
               const { data: existingAttendance } = await supabase
                 .from("attendance")
                 .select("id")
                 .eq("student_id", bestMatch.id)
-                .eq("class_id", this.state.selectedClass)
-                .eq("attendance_date", today)
+                .eq("session_id", this.state.selectedSession)
                 .single();
-
               if (existingAttendance) {
                 resolve({
                   status: "already_marked",
@@ -218,26 +221,23 @@ export class AttendanceService {
                 });
                 return;
               }
-
-              // Mark attendance
               const confidence = Math.max(0, 1 - bestMatch.distance);
               const { error } = await supabase.from("attendance").insert({
                 student_id: bestMatch.id,
-                class_id: this.state.selectedClass,
-                confidence_score: confidence,
-                attendance_date: today,
+                session_id: this.state.selectedSession,
+                is_present: true,
+                method: "face_recognition",
+                confidence: confidence,
               });
-
               if (error) {
                 console.error("Error marking attendance:", error);
                 resolve({ status: "error" });
                 return;
               }
-
               resolve({
                 status: "recognized",
                 studentName: bestMatch.studentName,
-                confidence: confidence,
+                confidence,
               });
             } else {
               resolve({ status: "not_recognized" });
@@ -247,12 +247,10 @@ export class AttendanceService {
             resolve({ status: "error" });
           }
         };
-
         img.onerror = () => {
           console.error("Error loading image for face recognition");
           resolve({ status: "error" });
         };
-
         img.src = imageData;
       });
     } catch (error) {
@@ -263,31 +261,22 @@ export class AttendanceService {
     }
   }
 
-  // Getters
   getState(): AttendanceServiceState {
     return this.state;
   }
-
   isProcessing(): boolean {
     return this.state.isProcessing;
   }
-
   isInAttendanceMode(): boolean {
     return this.state.isAttendanceMode;
   }
-
-  getSelectedClass(): string {
-    return this.state.selectedClass;
+  getSelectedSession(): string {
+    return this.state.selectedSession;
   }
-
-  getClasses(): Class[] {
-    return this.state.classes;
+  getSessions(): SessionInfo[] {
+    return this.state.sessions;
   }
-
-  getStudents(): Student[] {
-    return this.state.students;
-  }
+  // Removed getStudents; students fetched ad-hoc with embeddings
 }
 
-// Singleton instance
 export const attendanceService = new AttendanceService();

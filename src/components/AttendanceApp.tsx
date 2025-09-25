@@ -6,13 +6,12 @@ export const AttendanceApp = () => {
   const {
     isAttendanceMode,
     isProcessing,
-    selectedClass,
-    classes,
-    setSelectedClass,
+    selectedSession,
+    sessions,
+    setSelectedSession,
     startAttendance,
     stopAttendance,
     handleFaceDetection,
-    refreshData,
   } = useAttendanceService();
 
   const { toast } = useToast();
@@ -34,13 +33,12 @@ export const AttendanceApp = () => {
     <AttendanceUI
       isAttendanceMode={isAttendanceMode}
       isProcessing={isProcessing}
-      selectedClass={selectedClass}
-      classes={classes}
-      onClassSelect={setSelectedClass}
+      selectedSession={selectedSession}
+      sessions={sessions}
+      onSessionSelect={setSelectedSession}
       onStartAttendance={handleStartAttendance}
       onStopAttendance={stopAttendance}
       onFaceDetected={handleFaceDetection}
-      onRefreshData={refreshData}
     />
   );
 };

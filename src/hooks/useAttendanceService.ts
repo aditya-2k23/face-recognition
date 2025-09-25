@@ -16,13 +16,15 @@ export const useAttendanceService = () => {
   // Subscribe to service state changes
   useEffect(() => {
     const unsubscribe = attendanceService.subscribe(setState);
+    // Immediately load sessions so user can select before starting attendance
+    attendanceService.refreshData();
     return unsubscribe;
   }, []);
 
   // Action methods
   const actions = {
-    setSelectedClass: (classId: string) =>
-      attendanceService.setSelectedClass(classId),
+    setSelectedSession: (sessionId: string) =>
+      attendanceService.setSelectedSession(sessionId),
     startAttendance: () => attendanceService.startAttendance(),
     stopAttendance: () => attendanceService.stopAttendance(),
     handleFaceDetection: (imageData: string) =>

@@ -20,9 +20,11 @@ interface StudentManagerProps {
 
 export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
   const [newStudent, setNewStudent] = useState({
-    name: "",
-    student_id: "",
+    full_name: "",
     email: "",
+    phone: "",
+    department: "",
+    enrollment_year: "", // keep as string for input then parse
   });
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
@@ -43,10 +45,10 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
   };
 
   const addStudent = async () => {
-    if (!newStudent.name || !newStudent.student_id || !selectedPhoto) {
+    if (!newStudent.full_name || !selectedPhoto) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all fields and select a photo.",
+        description: "Please fill in required fields (Full Name & Photo).",
         variant: "destructive",
       });
       return;
@@ -55,12 +57,19 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
     setIsProcessing(true);
     try {
       // First, add student to database
+      const enrollmentYearNum = newStudent.enrollment_year
+        ? parseInt(newStudent.enrollment_year, 10)
+        : null;
+
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .insert({
-          name: newStudent.name,
-          student_id: newStudent.student_id,
+          full_name: newStudent.full_name,
           email: newStudent.email || null,
+          phone: newStudent.phone || null,
+          department: newStudent.department || null,
+          enrollment_year: isNaN(enrollmentYearNum!) ? null : enrollmentYearNum,
+          photo_url: null, // could upload to storage later
         })
         .select()
         .single();
@@ -88,8 +97,8 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
             .from("face_embeddings")
             .insert({
               student_id: studentData.id,
-              // Store as JSON string to match Supabase type (embedding: string)
-              embedding: JSON.stringify(Array.from(faceDescriptor)),
+              embedding: Array.from(faceDescriptor),
+              source: "registration",
             });
 
           if (embeddingError) {
@@ -100,12 +109,18 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
 
           toast({
             title: "✓ Student Added",
-            description: `${newStudent.name} has been successfully enrolled with face recognition.`,
+            description: `${newStudent.full_name} has been enrolled with face recognition.`,
             variant: "default",
           });
 
           // Reset form
-          setNewStudent({ name: "", student_id: "", email: "" });
+          setNewStudent({
+            full_name: "",
+            email: "",
+            phone: "",
+            department: "",
+            enrollment_year: "",
+          });
           setSelectedPhoto(null);
           setPhotoPreview("");
           if (fileInputRef.current) {
@@ -179,29 +194,16 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-4">
           <div>
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="full_name">Full Name</Label>
             <Input
-              id="name"
-              value={newStudent.name}
+              id="full_name"
+              value={newStudent.full_name}
               onChange={(e) =>
-                setNewStudent({ ...newStudent, name: e.target.value })
+                setNewStudent({ ...newStudent, full_name: e.target.value })
               }
               placeholder="Enter student's full name"
             />
           </div>
-
-          <div>
-            <Label htmlFor="student_id">Student ID</Label>
-            <Input
-              id="student_id"
-              value={newStudent.student_id}
-              onChange={(e) =>
-                setNewStudent({ ...newStudent, student_id: e.target.value })
-              }
-              placeholder="Enter unique student ID"
-            />
-          </div>
-
           <div>
             <Label htmlFor="email">Email (Optional)</Label>
             <Input
@@ -212,6 +214,42 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
                 setNewStudent({ ...newStudent, email: e.target.value })
               }
               placeholder="Enter student's email"
+            />
+          </div>
+          <div>
+            <Label htmlFor="phone">Phone (Optional)</Label>
+            <Input
+              id="phone"
+              value={newStudent.phone}
+              onChange={(e) =>
+                setNewStudent({ ...newStudent, phone: e.target.value })
+              }
+              placeholder="Phone number"
+            />
+          </div>
+          <div>
+            <Label htmlFor="department">Department (Optional)</Label>
+            <Input
+              id="department"
+              value={newStudent.department}
+              onChange={(e) =>
+                setNewStudent({ ...newStudent, department: e.target.value })
+              }
+              placeholder="Department"
+            />
+          </div>
+          <div>
+            <Label htmlFor="enrollment_year">Enrollment Year (Optional)</Label>
+            <Input
+              id="enrollment_year"
+              value={newStudent.enrollment_year}
+              onChange={(e) =>
+                setNewStudent({
+                  ...newStudent,
+                  enrollment_year: e.target.value,
+                })
+              }
+              placeholder="e.g. 2024"
             />
           </div>
         </div>
@@ -275,12 +313,7 @@ export const StudentManager = ({ onStudentAdded }: StudentManagerProps) => {
 
         <Button
           onClick={addStudent}
-          disabled={
-            isProcessing ||
-            !newStudent.name ||
-            !newStudent.student_id ||
-            !selectedPhoto
-          }
+          disabled={isProcessing || !newStudent.full_name || !selectedPhoto}
           className="w-full"
         >
           {isProcessing ? (
